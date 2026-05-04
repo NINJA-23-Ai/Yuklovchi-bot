@@ -32,6 +32,7 @@ def _quality_format(quality: str) -> str:
 
 
 def _build_opts(output_template: str, format_selector: str) -> dict:
+    verbose_mode = os.getenv("YTDLP_VERBOSE", "0") == "1"
     return {
         "format": format_selector,
         "outtmpl": output_template,
@@ -40,13 +41,14 @@ def _build_opts(output_template: str, format_selector: str) -> dict:
         "fragment_retries": 5,
         "socket_timeout": 30,
         "geo_bypass": True,
-        "quiet": False,
-        "no_warnings": False,
-        "verbose": True,
+        "quiet": not verbose_mode,
+        "no_warnings": not verbose_mode,
+        "verbose": verbose_mode,
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         },
         "merge_output_format": "mp4",
+        "extractor_retries": 3,
     }
 
 
