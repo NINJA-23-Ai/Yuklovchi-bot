@@ -58,7 +58,9 @@ def _overlay_image_on_video(video_path: str, image_path: str) -> str:
     ffmpeg_bin = shutil.which("ffmpeg") or imageio_ffmpeg.get_ffmpeg_exe()
     cmd = [
         ffmpeg_bin, "-y", "-i", video_path, "-i", image_path,
-        "-filter_complex", "[1:v]scale=iw*0.25:-1[wm];[0:v][wm]overlay=W-w-20:H-h-20",
+        "-filter_complex", "[1:v][0:v]scale2ref=w=iw*0.25:h=ow/mdar[wm][base];[base][wm]overlay=W-w-20:H-h-20[v]",
+        "-map", "[v]",
+        "-map", "0:a?",
         "-c:a", "copy", out_path,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
