@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import yt_dlp
+import imageio_ffmpeg
 from yt_dlp.utils import DownloadError as YtDlpDownloadError
 
 logger = logging.getLogger(__name__)
@@ -34,9 +35,17 @@ def _quality_format(quality: str) -> str:
 
 def _require_ffmpeg() -> str:
     ffmpeg_path = shutil.which("ffmpeg")
-    if not ffmpeg_path:
-        raise RuntimeError("FFmpeg is required but not installed")
-    return ffmpeg_path
+    if ffmpeg_path:
+        return ffmpeg_path
+
+    try:
+        bundled = imageio_ffmpeg.get_ffmpeg_exe()
+        if bundled and os.path.exists(bundled):
+            return bundled
+    except Exception:
+        pass
+
+    raise RuntimeError("FFmpeg is required but not installed")
 
 
 def _build_opts(output_template: str, format_selector: str) -> dict:
