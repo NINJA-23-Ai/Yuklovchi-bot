@@ -9,7 +9,7 @@ from aiogram.types import FSInputFile, Message
 
 from downloader import DownloadError, download_video
 
-URL_PATTERN = re.compile(r"https?://\\S+", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
 GUIDE_TEXT = (
     "📎 Iltimos, video link yuboring.\n"
     "Qo‘llab-quvvatlanadigan platformalar: TikTok, Instagram, YouTube."
