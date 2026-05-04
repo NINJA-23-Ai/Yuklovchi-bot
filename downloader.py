@@ -32,15 +32,16 @@ def _quality_format(quality: str) -> str:
     return quality_map.get(quality, "bestvideo+bestaudio/best")
 
 
-
+def _require_ffmpeg() -> str:
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        raise RuntimeError("FFmpeg is required but not installed")
+    return ffmpeg_path
 
 
 def _build_opts(output_template: str, format_selector: str) -> dict:
-    verbose_mode = os.getenv("YTDLP_VERBOSE", "0") == "1"
-    ffmpeg_path = shutil.which("ffmpeg")
-    if not ffmpeg_path:
-        logger.warning("ffmpeg not found in PATH; merge-required formats may fail, fallback will be used")
-    return {
+    ffmpeg_path = _require_ffmpeg()
+    opts = {
         "format": format_selector,
         "outtmpl": output_template,
         "noplaylist": True,
@@ -48,16 +49,27 @@ def _build_opts(output_template: str, format_selector: str) -> dict:
         "fragment_retries": 5,
         "socket_timeout": 30,
         "geo_bypass": True,
-        "quiet": not verbose_mode,
-        "no_warnings": not verbose_mode,
-        "verbose": verbose_mode,
+        "nocheckcertificate": True,
+        "ignoreerrors": False,
+        "quiet": True,
+        "extract_flat": False,
+        "concurrent_fragment_downloads": 3,
+        "no_warnings": True,
+        "verbose": False,
         "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.google.com/",
+            "Accept-Language": "en-US,en;q=0.9",
         },
         "merge_output_format": "mp4",
-        **({"ffmpeg_location": ffmpeg_path} if ffmpeg_path else {}),
+        "ffmpeg_location": ffmpeg_path,
         "extractor_retries": 3,
     }
+
+    if os.path.exists("cookies.txt"):
+        opts["cookiefile"] = "cookies.txt"
+
+    return opts
 
 
 def _find_downloaded_file(base_path: str) -> Optional[str]:
@@ -72,12 +84,12 @@ def _download_once(url: str, output_template: str, format_selector: str) -> str:
     with yt_dlp.YoutubeDL(_build_opts(output_template, format_selector)) as ydl:
         info = ydl.extract_info(url, download=True)
         if not info:
-            raise DownloadError("Video mavjud emas")
+            raise DownloadError("Video yopiq yoki mavjud emas")
         base_path = ydl.prepare_filename(info)
 
     real_path = _find_downloaded_file(base_path)
     if not real_path:
-        raise DownloadError("Format topilmadi yoki fayl yaratilmadi")
+        raise DownloadError("Mos format topilmadi")
 
     persistent_path = os.path.join(tempfile.gettempdir(), f"video_{uuid.uuid4()}{os.path.splitext(real_path)[1]}")
     os.replace(real_path, persistent_path)
@@ -86,14 +98,14 @@ def _download_once(url: str, output_template: str, format_selector: str) -> str:
 
 def _classify_error(exc: Exception) -> str:
     msg = str(exc).lower()
-    if "requested format" in msg:
-        return "Format topilmadi"
     if "ffmpeg" in msg:
-        return "FFmpeg topilmadi"
-    if "unable to download" in msg or "forbidden" in msg or "http" in msg:
-        return "Platforma blokladi"
-    if "not available" in msg or "private" in msg:
-        return "Video mavjud emas"
+        return "FFmpeg o‘rnatilmagan"
+    if "http" in msg or "403" in msg or "forbidden" in msg:
+        return "Platforma video berishni blokladi"
+    if "private" in msg or "not available" in msg:
+        return "Video yopiq yoki mavjud emas"
+    if "format" in msg or "requested format" in msg:
+        return "Mos format topilmadi"
     return "Video yuklab bo‘lmadi"
 
 
@@ -119,7 +131,7 @@ async def download_video(url: str, quality: str = "720") -> DownloadResult:
     try:
         result = await asyncio.to_thread(_download_sync, url, quality)
         if not result or not result.file_path or not os.path.exists(result.file_path):
-            raise DownloadError("Fayl topilmadi")
+            raise DownloadError("Video yuklab bo‘lmadi")
         return result
     except DownloadError:
         raise

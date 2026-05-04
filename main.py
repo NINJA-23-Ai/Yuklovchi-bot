@@ -55,7 +55,9 @@ async def _delete_messages(bot: Bot, chat_id: int, ids: list[int]) -> None:
 
 def _overlay_image_on_video(video_path: str, image_path: str) -> str:
     out_path = os.path.join(tempfile.gettempdir(), f"video_thumb_{uuid.uuid4()}.mp4")
-    ffmpeg_bin = shutil.which("ffmpeg") or imageio_ffmpeg.get_ffmpeg_exe()
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        raise RuntimeError("FFmpeg is required but not installed")
     cmd = [
         ffmpeg_bin, "-y", "-i", video_path, "-i", image_path,
         "-filter_complex", "[1:v][0:v]scale2ref=w=iw*0.25:h=ow/mdar[wm][base];[base][wm]overlay=W-w-20:H-h-20[v]",
@@ -65,7 +67,7 @@ def _overlay_image_on_video(video_path: str, image_path: str) -> str:
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        raise RuntimeError(proc.stderr[-700:])
+        raise RuntimeError(proc.stderr)
     return out_path
 
 
@@ -127,7 +129,7 @@ async def process_message(message: Message) -> None:
                 final_path = await asyncio.to_thread(_overlay_image_on_video, video_path, img_path)
                 await _send_final_video(message, final_path)
             except Exception:
-                logging.exception("Overlay failed, fallback to thumbnail")
+                logging.exception("Overlay failed, fallback to thumbnail (full ffmpeg stderr logged)")
                 await message.answer("ℹ️ Rasm videoga joylanmadi, thumbnail sifatida yuborildi.", reply_markup=MENU)
                 final_path = video_path
                 await _send_final_video(message, video_path, thumb_path=img_path)
