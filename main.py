@@ -10,6 +10,7 @@ import uuid
 from contextlib import suppress
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import (
     CallbackQuery,
     FSInputFile,
@@ -66,12 +67,32 @@ def _overlay_image_on_video(video_path: str, image_path: str) -> str:
 
 async def _send_final_video(message: Message, video_path: str, thumb_path: str | None = None) -> None:
     file_size = os.path.getsize(video_path)
-    media = FSInputFile(video_path)
+
     if file_size > 49 * 1024 * 1024:
-        await message.answer_document(media, caption="✅ Yuklandi", reply_markup=MENU)
-    else:
-        thumbnail = FSInputFile(thumb_path) if thumb_path and os.path.exists(thumb_path) else None
-        await message.answer_video(media, caption="✅ Yuklandi", reply_markup=MENU, thumbnail=thumbnail)
+        await message.answer_document(FSInputFile(video_path), caption="✅ Yuklandi", reply_markup=MENU, request_timeout=180)
+        return
+
+    thumbnail = FSInputFile(thumb_path) if thumb_path and os.path.exists(thumb_path) else None
+    try:
+        await message.answer_video(
+            FSInputFile(video_path),
+            caption="✅ Yuklandi",
+            reply_markup=MENU,
+            thumbnail=thumbnail,
+            request_timeout=180,
+        )
+    except TelegramNetworkError:
+        logging.exception("Video send timed out with thumbnail; retrying without thumbnail")
+        try:
+            await message.answer_video(
+                FSInputFile(video_path),
+                caption="✅ Yuklandi",
+                reply_markup=MENU,
+                request_timeout=180,
+            )
+        except TelegramNetworkError:
+            logging.exception("Video send timed out again; retrying as document")
+            await message.answer_document(FSInputFile(video_path), caption="✅ Yuklandi", reply_markup=MENU, request_timeout=180)
 
 
 async def _download_only(message: Message, url: str, quality: str) -> str:
