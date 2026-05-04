@@ -57,6 +57,11 @@ def _overlay_image_on_video(video_path: str, image_path: str) -> str:
     out_path = os.path.join(tempfile.gettempdir(), f"video_thumb_{uuid.uuid4()}.mp4")
     ffmpeg_bin = shutil.which("ffmpeg")
     if not ffmpeg_bin:
+        try:
+            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            ffmpeg_bin = None
+    if not ffmpeg_bin:
         raise RuntimeError("FFmpeg is required but not installed")
     cmd = [
         ffmpeg_bin, "-y", "-i", video_path, "-i", image_path,
