@@ -34,16 +34,12 @@ def _quality_format(quality: str) -> str:
 
 
 
-def _require_ffmpeg() -> str:
-    ffmpeg_path = shutil.which("ffmpeg")
-    if not ffmpeg_path:
-        raise RuntimeError("ffmpeg is required but not installed")
-    return ffmpeg_path
-
 
 def _build_opts(output_template: str, format_selector: str) -> dict:
     verbose_mode = os.getenv("YTDLP_VERBOSE", "0") == "1"
-    ffmpeg_path = _require_ffmpeg()
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        logger.warning("ffmpeg not found in PATH; merge-required formats may fail, fallback will be used")
     return {
         "format": format_selector,
         "outtmpl": output_template,
@@ -59,7 +55,7 @@ def _build_opts(output_template: str, format_selector: str) -> dict:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         },
         "merge_output_format": "mp4",
-        "ffmpeg_location": ffmpeg_path,
+        **({"ffmpeg_location": ffmpeg_path} if ffmpeg_path else {}),
         "extractor_retries": 3,
     }
 
